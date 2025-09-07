@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button, Card, Form } from "react-bootstrap";
-// import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 
 function DevToolsTab() {
   const [gameDir, setGameDir] = useState("");
@@ -18,12 +18,8 @@ function DevToolsTab() {
     setResult(null);
     
     try {
-      // TODO: Re-enable when the backend is ready
-      // const files = await invoke("find_modified_files", { mod_dir: gameDir });
-      // setResult(`Found ${files.length} modified files`);
-      
-      // Placeholder for now
-      setResult("Found 42 modified files (placeholder)");
+      const files = await invoke("find_modified_files", { mod_dir: gameDir }) as string[];
+      setResult(`Found ${files.length} modified files:\n${files.slice(0, 5).join('\n')}${files.length > 5 ? '\n...' : ''}`);
     } catch (error) {
       setResult(`Error: ${error}`);
     } finally {
@@ -108,7 +104,7 @@ function DevToolsTab() {
             {result && (
               <div className="mt-3">
                 <div className={`alert ${result.startsWith('Error') ? 'alert-danger' : 'alert-success'}`}>
-                  {result}
+                  <pre style={{ whiteSpace: 'pre-wrap', marginBottom: 0 }}>{result}</pre>
                 </div>
               </div>
             )}

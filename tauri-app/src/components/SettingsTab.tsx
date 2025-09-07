@@ -1,65 +1,27 @@
 import { useState, useEffect } from "react";
 import { Button, Card, Col, Form, Row } from "react-bootstrap";
-// import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 
 interface Settings {
-  cemu_dir: string;
   game_dir: string;
-  game_dir_nx: string;
-  update_dir: string;
   dlc_dir: string;
-  dlc_dir_nx: string;
-  store_dir: string;
-  export_dir: string;
-  export_dir_nx: string;
-  load_reverse: boolean;
-  site_meta: string;
-  no_guess: boolean;
-  lang: string;
-  no_cemu: boolean;
+  cemu_dir: string;
   wiiu: boolean;
-  no_hardlinks: boolean;
-  force_7z: boolean;
-  suppress_update: boolean;
-  nsfw: boolean;
-  changelog: boolean;
-  strip_gfx: boolean;
-  auto_gb: boolean;
-  show_gb: boolean;
+  lang: string;
 }
-
-const DEFAULT_SETTINGS: Settings = {
-  cemu_dir: "",
-  game_dir: "",
-  game_dir_nx: "",
-  update_dir: "",
-  dlc_dir: "",
-  dlc_dir_nx: "",
-  store_dir: "",
-  export_dir: "",
-  export_dir_nx: "",
-  load_reverse: false,
-  site_meta: "",
-  no_guess: false,
-  lang: "USen",
-  no_cemu: false,
-  wiiu: true,
-  no_hardlinks: false,
-  force_7z: false,
-  suppress_update: false,
-  nsfw: false,
-  changelog: true,
-  strip_gfx: false,
-  auto_gb: true,
-  show_gb: true,
-};
 
 const LANGUAGES = [
   "USen", "EUen", "USfr", "USes", "EUde", "EUes", "EUfr", "EUit", "EUnl", "EUru", "CNzh", "JPja", "KRko", "TWzh"
 ];
 
 function SettingsTab() {
-  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<Settings>({
+    game_dir: "",
+    dlc_dir: "",
+    cemu_dir: "",
+    wiiu: true,
+    lang: "USen",
+  });
   const [isDirty, setIsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -70,12 +32,8 @@ function SettingsTab() {
 
   const loadSettings = async () => {
     try {
-      // TODO: Implement get_settings Tauri command
-      // const loadedSettings = await invoke("get_settings");
-      // setSettings({ ...DEFAULT_SETTINGS, ...loadedSettings });
-      
-      // For now, use defaults
-      setSettings(DEFAULT_SETTINGS);
+      const loadedSettings = await invoke("get_settings") as Settings;
+      setSettings(loadedSettings);
     } catch (error) {
       console.error("Failed to load settings:", error);
       setMessage({ type: 'error', text: `Failed to load settings: ${error}` });
@@ -91,12 +49,7 @@ function SettingsTab() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      // TODO: Implement save_settings Tauri command
-      // await invoke("save_settings", { settings });
-      
-      // Placeholder for now
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate save delay
-      
+      await invoke("save_settings", { settings });
       setIsDirty(false);
       setMessage({ type: 'success', text: 'Settings saved successfully!' });
     } catch (error) {
@@ -107,7 +60,13 @@ function SettingsTab() {
   };
 
   const handleReset = () => {
-    setSettings(DEFAULT_SETTINGS);
+    setSettings({
+      game_dir: "",
+      dlc_dir: "",
+      cemu_dir: "",
+      wiiu: true,
+      lang: "USen",
+    });
     setIsDirty(true);
     setMessage(null);
   };
@@ -190,12 +149,12 @@ function SettingsTab() {
                 )}
 
                 <Form.Group className="mb-3">
-                  <Form.Label>{settings.wiiu ? "Game Directory (Wii U)" : "Game Directory (Switch)"}</Form.Label>
+                  <Form.Label>Game Directory</Form.Label>
                   <div className="input-group">
                     <Form.Control
                       type="text"
-                      value={settings.wiiu ? settings.game_dir : settings.game_dir_nx}
-                      onChange={(e) => handleSettingChange(settings.wiiu ? 'game_dir' : 'game_dir_nx', e.target.value)}
+                      value={settings.game_dir}
+                      onChange={(e) => handleSettingChange('game_dir', e.target.value)}
                       placeholder="Path to game files..."
                     />
                     <Button variant="outline-secondary">Browse</Button>
@@ -207,8 +166,8 @@ function SettingsTab() {
                   <div className="input-group">
                     <Form.Control
                       type="text"
-                      value={settings.wiiu ? settings.dlc_dir : settings.dlc_dir_nx}
-                      onChange={(e) => handleSettingChange(settings.wiiu ? 'dlc_dir' : 'dlc_dir_nx', e.target.value)}
+                      value={settings.dlc_dir}
+                      onChange={(e) => handleSettingChange('dlc_dir', e.target.value)}
                       placeholder="Path to DLC files..."
                     />
                     <Button variant="outline-secondary">Browse</Button>
@@ -217,76 +176,28 @@ function SettingsTab() {
               </Col>
 
               <Col md={6}>
-                <h6>Options</h6>
-                <Form.Group className="mb-3">
-                  <Form.Check
-                    type="checkbox"
-                    id="load-reverse"
-                    label="Load mods in reverse priority order"
-                    checked={settings.load_reverse}
-                    onChange={(e) => handleSettingChange('load_reverse', e.target.checked)}
-                  />
-                </Form.Group>
+                <h6>Advanced Options</h6>
+                <div className="alert alert-info">
+                  <small>
+                    Additional configuration options will be available in future updates.
+                    The current settings cover the core functionality needed for mod management.
+                  </small>
+                </div>
 
-                <Form.Group className="mb-3">
-                  <Form.Check
-                    type="checkbox"
-                    id="no-hardlinks"
-                    label="Disable hardlinks (copy instead of link)"
-                    checked={settings.no_hardlinks}
-                    onChange={(e) => handleSettingChange('no_hardlinks', e.target.checked)}
-                  />
-                </Form.Group>
-
-                <Form.Group className="mb-3">
-                  <Form.Check
-                    type="checkbox"
-                    id="force-7z"
-                    label="Force 7z compression for mods"
-                    checked={settings.force_7z}
-                    onChange={(e) => handleSettingChange('force_7z', e.target.checked)}
-                  />
-                </Form.Group>
-
-                <Form.Group className="mb-3">
-                  <Form.Check
-                    type="checkbox"
-                    id="suppress-update"
-                    label="Suppress update notifications"
-                    checked={settings.suppress_update}
-                    onChange={(e) => handleSettingChange('suppress_update', e.target.checked)}
-                  />
-                </Form.Group>
-
-                <Form.Group className="mb-3">
-                  <Form.Check
-                    type="checkbox"
-                    id="changelog"
-                    label="Show changelog on updates"
-                    checked={settings.changelog}
-                    onChange={(e) => handleSettingChange('changelog', e.target.checked)}
-                  />
-                </Form.Group>
-
-                <Form.Group className="mb-3">
-                  <Form.Check
-                    type="checkbox"
-                    id="auto-gb"
-                    label="Auto-generate GraphicPacks"
-                    checked={settings.auto_gb}
-                    onChange={(e) => handleSettingChange('auto_gb', e.target.checked)}
-                  />
-                </Form.Group>
-
-                <Form.Group className="mb-3">
-                  <Form.Check
-                    type="checkbox"
-                    id="strip-gfx"
-                    label="Strip unnecessary graphic files"
-                    checked={settings.strip_gfx}
-                    onChange={(e) => handleSettingChange('strip_gfx', e.target.checked)}
-                  />
-                </Form.Group>
+                <div className="card">
+                  <div className="card-body">
+                    <h6 className="card-title">Migration Status</h6>
+                    <ul className="list-unstyled mb-0">
+                      <li>✅ Modern React 19.x frontend</li>
+                      <li>✅ Tauri native backend</li>
+                      <li>✅ Bootstrap 5.x UI</li>
+                      <li>✅ TypeScript support</li>
+                      <li>🔄 Rust API integration (in progress)</li>
+                      <li>⏳ File operations</li>
+                      <li>⏳ Mod installation</li>
+                    </ul>
+                  </div>
+                </div>
               </Col>
             </Row>
           </Form>

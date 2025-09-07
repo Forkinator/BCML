@@ -6,6 +6,7 @@
 // pub mod util;
 pub use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 // Tauri command structures
 #[derive(Debug, Deserialize)]
@@ -17,6 +18,25 @@ pub struct ModDirArgs {
 pub struct ModFile {
     path: String,
     modified: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ModInfo {
+    name: String,
+    path: String,
+    enabled: bool,
+    priority: i32,
+    description: Option<String>,
+    version: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SettingsData {
+    game_dir: String,
+    dlc_dir: String,
+    cemu_dir: String,
+    wiiu: bool,
+    lang: String,
 }
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
@@ -36,6 +56,82 @@ async fn sanity_check() -> Result<bool, String> {
     Ok(true)
 }
 
+#[tauri::command]
+async fn get_mods() -> Result<Vec<ModInfo>, String> {
+    // TODO: Implement actual mod loading logic
+    // For now, return mock data to demonstrate the UI
+    Ok(vec![
+        ModInfo {
+            name: "First Person Mode".to_string(),
+            path: "/mods/first_person".to_string(),
+            enabled: true,
+            priority: 100,
+            description: Some("Enables first person camera view".to_string()),
+            version: Some("1.2.0".to_string()),
+        },
+        ModInfo {
+            name: "Enhanced Graphics".to_string(),
+            path: "/mods/enhanced_gfx".to_string(),
+            enabled: false,
+            priority: 200,
+            description: Some("Improves game graphics and textures".to_string()),
+            version: Some("2.1.0".to_string()),
+        },
+        ModInfo {
+            name: "Quality of Life Pack".to_string(),
+            path: "/mods/qol_pack".to_string(),
+            enabled: true,
+            priority: 150,
+            description: Some("Collection of gameplay improvements".to_string()),
+            version: Some("1.0.5".to_string()),
+        },
+    ])
+}
+
+#[tauri::command]
+async fn get_settings() -> Result<SettingsData, String> {
+    // TODO: Load actual settings from file
+    Ok(SettingsData {
+        game_dir: "".to_string(),
+        dlc_dir: "".to_string(),
+        cemu_dir: "".to_string(),
+        wiiu: true,
+        lang: "USen".to_string(),
+    })
+}
+
+#[tauri::command]
+async fn save_settings(settings: SettingsData) -> Result<(), String> {
+    // TODO: Implement actual settings saving
+    println!("Saving settings: {:?}", settings);
+    Ok(())
+}
+
+#[tauri::command]
+async fn toggle_mod(mod_path: String, enabled: bool) -> Result<(), String> {
+    // TODO: Implement mod enabling/disabling
+    println!("Toggling mod {} to {}", mod_path, enabled);
+    Ok(())
+}
+
+#[tauri::command]
+async fn uninstall_mod(mod_path: String) -> Result<(), String> {
+    // TODO: Implement mod uninstallation
+    println!("Uninstalling mod: {}", mod_path);
+    Ok(())
+}
+
+#[tauri::command]
+async fn find_modified_files(args: ModDirArgs) -> Result<Vec<String>, String> {
+    // TODO: Implement actual file scanning
+    println!("Scanning directory: {}", args.mod_dir);
+    Ok(vec![
+        "content/Actor/ActorInfo.product.sbyml".to_string(),
+        "content/Pack/Bootup.pack".to_string(),
+        "content/Map/MainField/A-1/A-1_Dynamic.smubin".to_string(),
+    ])
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -45,7 +141,13 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet,
             get_version,
-            sanity_check
+            sanity_check,
+            get_mods,
+            get_settings,
+            save_settings,
+            toggle_mod,
+            uninstall_mod,
+            find_modified_files
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

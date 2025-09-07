@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button, ButtonGroup, Card, Col, Row, Table } from "react-bootstrap";
-// import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 
 interface Mod {
   name: string;
@@ -8,6 +8,7 @@ interface Mod {
   enabled: boolean;
   priority: number;
   description?: string;
+  version?: string;
 }
 
 function ModsTab() {
@@ -22,11 +23,11 @@ function ModsTab() {
   const loadMods = async () => {
     setLoading(true);
     try {
-      // TODO: Implement get_mods Tauri command
-      // const modList = await invoke("get_mods");
-      // setMods(modList);
-      
-      // Placeholder data for now
+      const modList = await invoke("get_mods") as Mod[];
+      setMods(modList);
+    } catch (error) {
+      console.error("Failed to load mods:", error);
+      // Fallback to placeholder data
       setMods([
         {
           name: "Example Mod 1",
@@ -43,39 +44,62 @@ function ModsTab() {
           description: "Another example mod"
         }
       ]);
-    } catch (error) {
-      console.error("Failed to load mods:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleModSelect = (modName: string, selected: boolean) => {
+  const handleModSelect = (modPath: string, selected: boolean) => {
     if (selected) {
-      setSelectedMods([...selectedMods, modName]);
+      setSelectedMods([...selectedMods, modPath]);
     } else {
-      setSelectedMods(selectedMods.filter(name => name !== modName));
+      setSelectedMods(selectedMods.filter(path => path !== modPath));
     }
   };
 
   const handleInstallMod = () => {
-    // TODO: Implement mod installation
+    // TODO: Implement mod installation dialog
     console.log("Install mod clicked");
   };
 
-  const handleEnableMods = () => {
-    // TODO: Implement enable selected mods
-    console.log("Enable mods:", selectedMods);
+  const handleEnableMods = async () => {
+    try {
+      for (const modPath of selectedMods) {
+        await invoke("toggle_mod", { mod_path: modPath, enabled: true });
+      }
+      await loadMods(); // Refresh mod list
+      setSelectedMods([]);
+    } catch (error) {
+      console.error("Failed to enable mods:", error);
+    }
   };
 
-  const handleDisableMods = () => {
-    // TODO: Implement disable selected mods
-    console.log("Disable mods:", selectedMods);
+  const handleDisableMods = async () => {
+    try {
+      for (const modPath of selectedMods) {
+        await invoke("toggle_mod", { mod_path: modPath, enabled: false });
+      }
+      await loadMods(); // Refresh mod list
+      setSelectedMods([]);
+    } catch (error) {
+      console.error("Failed to disable mods:", error);
+    }
   };
 
-  const handleUninstallMods = () => {
-    // TODO: Implement uninstall selected mods
-    console.log("Uninstall mods:", selectedMods);
+  const handleUninstallMods = async () => {
+    if (!confirm(`Are you sure you want to uninstall ${selectedMods.length} mod(s)?`)) {
+      return;
+    }
+    
+    try {
+      for (const modPath of selectedMods) {
+        await invoke("uninstall_mod", { mod_path: modPath });
+      }
+      await loadMods(); // Refresh mod list
+      setSelectedMods([]);
+    } catch (error) {
+      console.error("Failed to uninstall mods:", error);
+    }
   };
 
   return (
@@ -128,6 +152,7 @@ function ModsTab() {
                 <tr>
                   <th></th>
                   <th>Name</th>
+                  <th>Version</th>
                   <th>Status</th>
                   <th>Priority</th>
                   <th>Description</th>
@@ -139,11 +164,12 @@ function ModsTab() {
                     <td>
                       <input
                         type="checkbox"
-                        checked={selectedMods.includes(mod.name)}
-                        onChange={(e) => handleModSelect(mod.name, e.target.checked)}
+                        checked={selectedMods.includes(mod.path)}
+                        onChange={(e) => handleModSelect(mod.path, e.target.checked)}
                       />
                     </td>
                     <td className="fw-bold">{mod.name}</td>
+                    <td className="text-muted">{mod.version || "Unknown"}</td>
                     <td>
                       <span className={`badge ${mod.enabled ? 'bg-success' : 'bg-secondary'}`}>
                         {mod.enabled ? 'Enabled' : 'Disabled'}
