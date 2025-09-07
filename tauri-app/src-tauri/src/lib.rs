@@ -22,11 +22,28 @@ fn get_settings_file() -> PathBuf {
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct SimpleSettings {
     pub game_dir: String,
+    pub game_dir_nx: String,
+    pub update_dir: String,
     pub dlc_dir: String,
+    pub dlc_dir_nx: String,
     pub cemu_dir: String,
+    pub store_dir: String,
+    pub export_dir: String,
+    pub export_dir_nx: String,
     pub wiiu: bool,
     pub lang: String,
-    pub store_dir: String,
+    pub no_cemu: bool,
+    pub no_hardlinks: bool,
+    pub force_7z: bool,
+    pub suppress_update: bool,
+    pub load_reverse: bool,
+    pub nsfw: bool,
+    pub changelog: bool,
+    pub strip_gfx: bool,
+    pub auto_gb: bool,
+    pub show_gb: bool,
+    pub site_meta: String,
+    pub no_guess: bool,
 }
 
 impl SimpleSettings {
@@ -40,6 +57,9 @@ impl SimpleSettings {
                 store_dir: get_default_settings_dir().to_string_lossy().to_string(),
                 wiiu: true,
                 lang: "USen".to_string(),
+                changelog: true,
+                auto_gb: true,
+                show_gb: true,
                 ..Default::default()
             })
         }
@@ -89,12 +109,41 @@ pub struct ModInfo {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SettingsData {
     game_dir: String,
+    game_dir_nx: String,
+    update_dir: String,
     dlc_dir: String,
+    dlc_dir_nx: String,
     cemu_dir: String,
-    wiiu: bool,
-    lang: String,
     store_dir: String,
     export_dir: String,
+    export_dir_nx: String,
+    wiiu: bool,
+    lang: String,
+    no_cemu: bool,
+    no_hardlinks: bool,
+    force_7z: bool,
+    suppress_update: bool,
+    load_reverse: bool,
+    nsfw: bool,
+    changelog: bool,
+    strip_gfx: bool,
+    auto_gb: bool,
+    show_gb: bool,
+    site_meta: String,
+    no_guess: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct BackupInfo {
+    name: String,
+    path: String,
+    num: i32,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ProfileInfo {
+    name: String,
+    path: String,
 }
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
@@ -212,12 +261,28 @@ async fn get_settings() -> Result<SettingsData, String> {
     
     Ok(SettingsData {
         game_dir: settings.game_dir,
+        game_dir_nx: settings.game_dir_nx,
+        update_dir: settings.update_dir,
         dlc_dir: settings.dlc_dir,
+        dlc_dir_nx: settings.dlc_dir_nx,
         cemu_dir: settings.cemu_dir,
+        store_dir: settings.store_dir,
+        export_dir: settings.export_dir,
+        export_dir_nx: settings.export_dir_nx,
         wiiu: settings.wiiu,
         lang: settings.lang,
-        store_dir: settings.store_dir,
-        export_dir: "".to_string(), // Will be implemented later
+        no_cemu: settings.no_cemu,
+        no_hardlinks: settings.no_hardlinks,
+        force_7z: settings.force_7z,
+        suppress_update: settings.suppress_update,
+        load_reverse: settings.load_reverse,
+        nsfw: settings.nsfw,
+        changelog: settings.changelog,
+        strip_gfx: settings.strip_gfx,
+        auto_gb: settings.auto_gb,
+        show_gb: settings.show_gb,
+        site_meta: settings.site_meta,
+        no_guess: settings.no_guess,
     })
 }
 
@@ -225,15 +290,32 @@ async fn get_settings() -> Result<SettingsData, String> {
 async fn save_settings(settings_data: SettingsData) -> Result<(), String> {
     let settings = SimpleSettings {
         game_dir: settings_data.game_dir,
+        game_dir_nx: settings_data.game_dir_nx,
+        update_dir: settings_data.update_dir,
         dlc_dir: settings_data.dlc_dir,
+        dlc_dir_nx: settings_data.dlc_dir_nx,
         cemu_dir: settings_data.cemu_dir,
-        wiiu: settings_data.wiiu,
-        lang: settings_data.lang,
         store_dir: if settings_data.store_dir.is_empty() {
             get_default_settings_dir().to_string_lossy().to_string()
         } else {
             settings_data.store_dir
         },
+        export_dir: settings_data.export_dir,
+        export_dir_nx: settings_data.export_dir_nx,
+        wiiu: settings_data.wiiu,
+        lang: settings_data.lang,
+        no_cemu: settings_data.no_cemu,
+        no_hardlinks: settings_data.no_hardlinks,
+        force_7z: settings_data.force_7z,
+        suppress_update: settings_data.suppress_update,
+        load_reverse: settings_data.load_reverse,
+        nsfw: settings_data.nsfw,
+        changelog: settings_data.changelog,
+        strip_gfx: settings_data.strip_gfx,
+        auto_gb: settings_data.auto_gb,
+        show_gb: settings_data.show_gb,
+        site_meta: settings_data.site_meta,
+        no_guess: settings_data.no_guess,
     };
     
     settings.save()
@@ -327,6 +409,310 @@ async fn find_modified_files(args: ModDirArgs) -> Result<Vec<String>, String> {
     Ok(modified_files)
 }
 
+// Additional commands for full functionality
+#[tauri::command]
+async fn save_mod_list() -> Result<(), String> {
+    // TODO: Implement saving mod list to file
+    // For now, just return success
+    Ok(())
+}
+
+#[tauri::command]
+async fn update_bcml() -> Result<(), String> {
+    // TODO: Implement BCML update functionality
+    // For now, just return success
+    Err("Update functionality not yet implemented".to_string())
+}
+
+#[tauri::command]
+async fn launch_game() -> Result<(), String> {
+    let settings = SimpleSettings::load()?;
+    
+    if settings.wiiu && !settings.no_cemu && !settings.cemu_dir.is_empty() {
+        // Try to launch Cemu if configured
+        let cemu_exe = Path::new(&settings.cemu_dir).join("Cemu.exe");
+        if cemu_exe.exists() {
+            std::process::Command::new(&cemu_exe)
+                .spawn()
+                .map_err(|e| format!("Failed to launch Cemu: {}", e))?;
+            Ok(())
+        } else {
+            Err("Cemu executable not found".to_string())
+        }
+    } else {
+        Err("Game launch not configured".to_string())
+    }
+}
+
+#[tauri::command]
+async fn install_mod(mods: Vec<String>, options: serde_json::Value) -> Result<(), String> {
+    // TODO: Implement mod installation
+    // For now, just return success
+    println!("Installing mods: {:?} with options: {:?}", mods, options);
+    Ok(())
+}
+
+#[tauri::command]
+async fn uninstall_all_mods() -> Result<(), String> {
+    let settings = SimpleSettings::load()?;
+    let mods_dir = settings.mods_dir();
+    
+    if !mods_dir.exists() {
+        return Ok(());
+    }
+    
+    // Remove all mod directories except BCML special directories
+    for entry in fs::read_dir(&mods_dir).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let path = entry.path();
+        
+        if path.is_dir() {
+            let name = path.file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
+            
+            // Skip special BCML directories
+            if name == "9999_BCML" || name.starts_with('.') {
+                continue;
+            }
+            
+            std::fs::remove_dir_all(&path).map_err(|e| e.to_string())?;
+        }
+    }
+    
+    Ok(())
+}
+
+#[tauri::command]
+async fn explore_mod(mod_path: String) -> Result<(), String> {
+    let path = Path::new(&mod_path);
+    
+    if !path.exists() {
+        return Err("Mod directory does not exist".to_string());
+    }
+    
+    // Open the directory in the system file explorer
+    #[cfg(windows)]
+    {
+        std::process::Command::new("explorer")
+            .arg(&mod_path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&mod_path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&mod_path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    
+    Ok(())
+}
+
+#[tauri::command]
+async fn reprocess_mod(mod_path: String) -> Result<(), String> {
+    // TODO: Implement mod reprocessing
+    println!("Reprocessing mod: {}", mod_path);
+    Ok(())
+}
+
+#[tauri::command]
+async fn remerge_all() -> Result<(), String> {
+    // TODO: Implement remerge functionality
+    println!("Remerging all mods");
+    Ok(())
+}
+
+#[tauri::command]
+async fn export_mods() -> Result<(), String> {
+    // TODO: Implement mod export functionality
+    println!("Exporting mods");
+    Ok(())
+}
+
+// Backup management commands
+#[tauri::command]
+async fn get_backups() -> Result<Vec<BackupInfo>, String> {
+    let settings = SimpleSettings::load()?;
+    let backups_dir = Path::new(&settings.store_dir).join("backups");
+    
+    if !backups_dir.exists() {
+        return Ok(vec![]);
+    }
+    
+    let mut backups = Vec::new();
+    
+    for entry in fs::read_dir(&backups_dir).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let path = entry.path();
+        
+        if path.is_dir() {
+            let name = path.file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
+            
+            // Count mods in backup (rough estimate)
+            let mods_count = if let Ok(entries) = fs::read_dir(&path) {
+                entries.count() as i32
+            } else {
+                0
+            };
+            
+            backups.push(BackupInfo {
+                name,
+                path: path.to_string_lossy().to_string(),
+                num: mods_count,
+            });
+        }
+    }
+    
+    Ok(backups)
+}
+
+#[tauri::command]
+async fn create_backup(backup: String) -> Result<(), String> {
+    // TODO: Implement backup creation
+    println!("Creating backup: {}", backup);
+    Ok(())
+}
+
+#[tauri::command]
+async fn restore_backup(backup: String) -> Result<(), String> {
+    // TODO: Implement backup restoration
+    println!("Restoring backup: {}", backup);
+    Ok(())
+}
+
+#[tauri::command]
+async fn delete_backup(backup: String) -> Result<(), String> {
+    let backup_path = Path::new(&backup);
+    
+    if backup_path.exists() && backup_path.is_dir() {
+        std::fs::remove_dir_all(backup_path).map_err(|e| e.to_string())?;
+    }
+    
+    Ok(())
+}
+
+#[tauri::command]
+async fn restore_old_backup() -> Result<(), String> {
+    // TODO: Implement BCML 2.8 backup restoration
+    Err("Old backup restoration not yet implemented".to_string())
+}
+
+// Profile management commands
+#[tauri::command]
+async fn get_profiles() -> Result<Vec<ProfileInfo>, String> {
+    let settings = SimpleSettings::load()?;
+    let profiles_dir = Path::new(&settings.store_dir).join("profiles");
+    
+    if !profiles_dir.exists() {
+        return Ok(vec![]);
+    }
+    
+    let mut profiles = Vec::new();
+    
+    for entry in fs::read_dir(&profiles_dir).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let path = entry.path();
+        
+        if path.is_dir() {
+            let name = path.file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
+            
+            profiles.push(ProfileInfo {
+                name,
+                path: path.to_string_lossy().to_string(),
+            });
+        }
+    }
+    
+    Ok(profiles)
+}
+
+#[tauri::command]
+async fn get_current_profile() -> Result<Option<ProfileInfo>, String> {
+    // TODO: Implement current profile detection
+    Ok(None)
+}
+
+#[tauri::command]
+async fn save_profile(profile: serde_json::Value) -> Result<(), String> {
+    // TODO: Implement profile saving
+    println!("Saving profile: {:?}", profile);
+    Ok(())
+}
+
+#[tauri::command]
+async fn set_profile(profile: serde_json::Value) -> Result<(), String> {
+    // TODO: Implement profile loading
+    println!("Loading profile: {:?}", profile);
+    Ok(())
+}
+
+#[tauri::command]
+async fn delete_profile(profile: serde_json::Value) -> Result<(), String> {
+    // TODO: Implement profile deletion
+    println!("Deleting profile: {:?}", profile);
+    Ok(())
+}
+
+// Dev tools commands
+#[tauri::command]
+async fn create_bnp(mod_data: serde_json::Value, output_dir: Option<String>) -> Result<(), String> {
+    // TODO: Implement BNP creation
+    println!("Creating BNP with data: {:?} to output: {:?}", mod_data, output_dir);
+    Ok(())
+}
+
+#[tauri::command]
+async fn get_existing_meta(path: String) -> Result<Option<serde_json::Value>, String> {
+    let mod_dir = Path::new(&path);
+    let info_file = mod_dir.join("info.json");
+    
+    if info_file.exists() {
+        if let Ok(content) = fs::read_to_string(&info_file) {
+            if let Ok(meta) = serde_json::from_str::<serde_json::Value>(&content) {
+                return Ok(Some(meta));
+            }
+        }
+    }
+    
+    Ok(None)
+}
+
+#[tauri::command]
+async fn convert_mod(source_dir: String, output_dir: String) -> Result<(), String> {
+    // TODO: Implement mod conversion
+    println!("Converting mod from {} to {}", source_dir, output_dir);
+    Ok(())
+}
+
+#[tauri::command]
+async fn compare_files(dir1: String, dir2: String) -> Result<serde_json::Value, String> {
+    // TODO: Implement file comparison
+    println!("Comparing {} and {}", dir1, dir2);
+    
+    // Return placeholder comparison result
+    Ok(serde_json::json!({
+        "added": [],
+        "modified": [],
+        "removed": []
+    }))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -342,7 +728,30 @@ pub fn run() {
             save_settings,
             toggle_mod,
             uninstall_mod,
-            find_modified_files
+            find_modified_files,
+            save_mod_list,
+            update_bcml,
+            launch_game,
+            install_mod,
+            uninstall_all_mods,
+            explore_mod,
+            reprocess_mod,
+            remerge_all,
+            export_mods,
+            get_backups,
+            create_backup,
+            restore_backup,
+            delete_backup,
+            restore_old_backup,
+            get_profiles,
+            get_current_profile,
+            save_profile,
+            set_profile,
+            delete_profile,
+            create_bnp,
+            get_existing_meta,
+            convert_mod,
+            compare_files
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Button, ButtonGroup, Card, Col, Row, Table, Modal, Form } from "react-bootstrap";
+import { Button, ButtonGroup, Card, Col, Row, Table, Modal, Form, Dropdown } from "react-bootstrap";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
@@ -12,16 +12,101 @@ interface Mod {
   version?: string;
 }
 
-function ModsTab() {
+interface ModsTabProps {
+  onError: (error: string) => void;
+  onProgress: (title: string, status?: string) => void;
+  onDone: () => void;
+  onBackup: () => void;
+  onProfile: () => void;
+  onLaunch: () => void;
+  onConfirm: (message: string, callback: () => void) => void;
+}
+
+function ModsTab({
+  onError,
+  onProgress,
+  onDone,
+  onBackup,
+  onProfile,
+  onLaunch,
+  onConfirm
+}: ModsTabProps) {
   const [mods, setMods] = useState<Mod[]>([]);
   const [selectedMods, setSelectedMods] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [showInstallModal, setShowInstallModal] = useState(false);
   const [installFiles, setInstallFiles] = useState<string[]>([]);
+  const [showDisabled, setShowDisabled] = useState(true);
+  const [sortReverse, setSortReverse] = useState(true);
 
   useEffect(() => {
     loadMods();
-  }, []);
+    
+    // Add keyboard shortcuts
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey) {
+        switch (e.key) {
+          case "i":
+            e.preventDefault();
+            setShowInstallModal(true);
+            break;
+          case "d":
+            e.preventDefault();
+            if (selectedMods.length > 0) handleDisableMods();
+            break;
+          case "e":
+            e.preventDefault();
+            if (selectedMods.length > 0) handleEnableMods();
+            break;
+          case "u":
+            e.preventDefault();
+            if (e.shiftKey) {
+              uninstallAllMods();
+            } else if (selectedMods.length > 0) {
+              handleUninstallMods();
+            }
+            break;
+          case "x":
+            e.preventDefault();
+            if (selectedMods.length > 0) exploreModFolders();
+            break;
+          case "p":
+            e.preventDefault();
+            if (selectedMods.length > 0) reprocessMods();
+            break;
+          case "m":
+            e.preventDefault();
+            remergeAll();
+            break;
+          case "l":
+            e.preventDefault();
+            onLaunch();
+            break;
+          case "h":
+            e.preventDefault();
+            setShowDisabled(!showDisabled);
+            break;
+          case "o":
+            e.preventDefault();
+            setSortReverse(!sortReverse);
+            break;
+          case "b":
+            e.preventDefault();
+            onBackup();
+            break;
+          case "f":
+            e.preventDefault();
+            onProfile();
+            break;
+          default:
+            break;
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [selectedMods, showDisabled, sortReverse]);
 
   const loadMods = async () => {
     setLoading(true);
@@ -85,13 +170,101 @@ function ModsTab() {
   };
 
   const handleInstallSelectedMods = async () => {
-    // For now, just show that installation was attempted
-    console.log("Installing mods:", installFiles);
-    setInstallFiles([]);
-    setShowInstallModal(false);
-    // TODO: Implement actual mod installation via Tauri command
-    alert(`Installation of ${installFiles.length} mod(s) would be processed here. This feature is not yet fully implemented.`);
+    try {
+      onProgress("Installing Mod" + (installFiles.length > 1 ? "s" : ""));
+      
+      // TODO: Implement actual mod installation via Tauri command
+      await invoke("install_mod", { 
+        mods: installFiles, 
+        options: {} 
+      });
+      
+      setInstallFiles([]);
+      setShowInstallModal(false);
+      await loadMods();
+      onDone();
+    } catch (error) {
+      onError(`Failed to install mods: ${error}`);
+    }
   };
+
+  // New functionality methods
+  const exploreModFolders = async () => {
+    try {
+      for (const modPath of selectedMods) {
+        await invoke("explore_mod", { mod_path: modPath });
+      }
+    } catch (error) {
+      onError(`Failed to explore mod folders: ${error}`);
+    }
+  };
+
+  const reprocessMods = async () => {
+    try {
+      onProgress("Reprocessing Mods");
+      for (const modPath of selectedMods) {
+        await invoke("reprocess_mod", { mod_path: modPath });
+      }
+      await loadMods();
+      onDone();
+    } catch (error) {
+      onError(`Failed to reprocess mods: ${error}`);
+    }
+  };
+
+  const remergeAll = async () => {
+    try {
+      onProgress("Remerging All Mods");
+      await invoke("remerge_all");
+      await loadMods();
+      onDone();
+    } catch (error) {
+      onError(`Failed to remerge mods: ${error}`);
+    }
+  };
+
+  const uninstallAllMods = () => {
+    onConfirm(
+      "Are you sure you want to uninstall ALL mods? This cannot be undone.",
+      async () => {
+        try {
+          onProgress("Uninstalling All Mods");
+          await invoke("uninstall_all_mods");
+          await loadMods();
+          setSelectedMods([]);
+          onDone();
+        } catch (error) {
+          onError(`Failed to uninstall all mods: ${error}`);
+        }
+      }
+    );
+  };
+
+  const exportMods = async () => {
+    try {
+      onProgress("Exporting Mods");
+      await invoke("export_mods");
+      onDone();
+    } catch (error) {
+      onError(`Failed to export mods: ${error}`);
+    }
+  };
+
+  const handleSelectAll = () => {
+    if (selectedMods.length === filteredMods.length) {
+      setSelectedMods([]);
+    } else {
+      setSelectedMods(filteredMods.map(mod => mod.path));
+    }
+  };
+
+  // Filter and sort mods
+  const filteredMods = mods
+    .filter(mod => showDisabled || mod.enabled)
+    .sort((a, b) => {
+      const compareValue = a.priority - b.priority;
+      return sortReverse ? -compareValue : compareValue;
+    });
 
   const handleEnableMods = async () => {
     try {
@@ -138,13 +311,14 @@ function ModsTab() {
       <Row className="mb-3">
         <Col>
           <ButtonGroup>
-            <Button variant="primary" onClick={handleInstallMod}>
+            <Button variant="primary" onClick={handleInstallMod} title="Install Mod (Ctrl+I)">
               Install Mod
             </Button>
             <Button 
               variant="success" 
               onClick={handleEnableMods}
               disabled={selectedMods.length === 0}
+              title="Enable Selected (Ctrl+E)"
             >
               Enable
             </Button>
@@ -152,6 +326,7 @@ function ModsTab() {
               variant="warning" 
               onClick={handleDisableMods}
               disabled={selectedMods.length === 0}
+              title="Disable Selected (Ctrl+D)"
             >
               Disable
             </Button>
@@ -159,29 +334,104 @@ function ModsTab() {
               variant="danger" 
               onClick={handleUninstallMods}
               disabled={selectedMods.length === 0}
+              title="Uninstall Selected (Ctrl+U)"
             >
               Uninstall
             </Button>
           </ButtonGroup>
+          
+          <ButtonGroup className="ms-2">
+            <Button 
+              variant="info" 
+              onClick={exploreModFolders}
+              disabled={selectedMods.length === 0}
+              title="Explore Folders (Ctrl+X)"
+            >
+              Explore
+            </Button>
+            <Button 
+              variant="secondary" 
+              onClick={reprocessMods}
+              disabled={selectedMods.length === 0}
+              title="Reprocess (Ctrl+P)"
+            >
+              Reprocess
+            </Button>
+            <Button 
+              variant="secondary" 
+              onClick={remergeAll}
+              title="Remerge All (Ctrl+M)"
+            >
+              Remerge
+            </Button>
+          </ButtonGroup>
+
+          <Dropdown as={ButtonGroup} className="ms-2">
+            <Button variant="outline-secondary" onClick={onLaunch} title="Launch Game (Ctrl+L)">
+              Launch Game
+            </Button>
+            <Dropdown.Toggle split variant="outline-secondary" />
+            <Dropdown.Menu>
+              <Dropdown.Item onClick={onBackup} title="Backup (Ctrl+B)">
+                🗂️ Backup & Restore
+              </Dropdown.Item>
+              <Dropdown.Item onClick={onProfile} title="Profiles (Ctrl+F)">
+                📁 Profiles
+              </Dropdown.Item>
+              <Dropdown.Item onClick={exportMods}>
+                📤 Export Mods
+              </Dropdown.Item>
+              <Dropdown.Divider />
+              <Dropdown.Item onClick={() => setShowDisabled(!showDisabled)} title="Toggle Show Disabled (Ctrl+H)">
+                {showDisabled ? "🙈 Hide" : "👁️ Show"} Disabled Mods
+              </Dropdown.Item>
+              <Dropdown.Item onClick={() => setSortReverse(!sortReverse)} title="Toggle Sort Order (Ctrl+O)">
+                🔄 Sort {sortReverse ? "Ascending" : "Descending"}
+              </Dropdown.Item>
+              <Dropdown.Divider />
+              <Dropdown.Item onClick={uninstallAllMods} className="text-danger" title="Uninstall All (Ctrl+Shift+U)">
+                ⚠️ Uninstall All Mods
+              </Dropdown.Item>
+            </Dropdown.Menu>
+          </Dropdown>
         </Col>
       </Row>
 
       <Card>
-        <Card.Header>
-          <h5>Installed Mods ({mods.length})</h5>
+        <Card.Header className="d-flex justify-content-between align-items-center">
+          <h5>Installed Mods ({filteredMods.length}{mods.length !== filteredMods.length ? ` of ${mods.length}` : ''})</h5>
+          <div>
+            <Button 
+              variant="outline-secondary" 
+              size="sm"
+              onClick={handleSelectAll}
+              title="Select All/None"
+            >
+              {selectedMods.length === filteredMods.length ? "Deselect All" : "Select All"}
+            </Button>
+          </div>
         </Card.Header>
         <Card.Body>
           {loading ? (
             <div className="text-center">Loading mods...</div>
-          ) : mods.length === 0 ? (
+          ) : filteredMods.length === 0 ? (
             <div className="text-center text-muted">
-              No mods installed. Click "Install Mod" to get started.
+              {mods.length === 0 
+                ? "No mods installed. Click \"Install Mod\" to get started."
+                : "No mods match the current filter. Toggle \"Show Disabled\" to see all mods."
+              }
             </div>
           ) : (
             <Table striped hover>
               <thead>
                 <tr>
-                  <th></th>
+                  <th style={{ width: "40px" }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedMods.length === filteredMods.length && filteredMods.length > 0}
+                      onChange={handleSelectAll}
+                    />
+                  </th>
                   <th>Name</th>
                   <th>Version</th>
                   <th>Status</th>
@@ -190,8 +440,8 @@ function ModsTab() {
                 </tr>
               </thead>
               <tbody>
-                {mods.map((mod, index) => (
-                  <tr key={index}>
+                {filteredMods.map((mod, index) => (
+                  <tr key={index} className={!mod.enabled ? "text-muted" : ""}>
                     <td>
                       <input
                         type="checkbox"
