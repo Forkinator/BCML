@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    bcml_lib::run()
+    bcml_tauri_lib::run()
 }

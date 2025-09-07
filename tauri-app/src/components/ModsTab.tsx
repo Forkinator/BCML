@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { Button, ButtonGroup, Card, Col, Row, Table } from "react-bootstrap";
+import { Button, ButtonGroup, Card, Col, Row, Table, Modal, Form } from "react-bootstrap";
 import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 
 interface Mod {
   name: string;
@@ -15,6 +16,8 @@ function ModsTab() {
   const [mods, setMods] = useState<Mod[]>([]);
   const [selectedMods, setSelectedMods] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showInstallModal, setShowInstallModal] = useState(false);
+  const [installFiles, setInstallFiles] = useState<string[]>([]);
 
   useEffect(() => {
     loadMods();
@@ -57,9 +60,37 @@ function ModsTab() {
     }
   };
 
-  const handleInstallMod = () => {
-    // TODO: Implement mod installation dialog
-    console.log("Install mod clicked");
+  const handleInstallMod = async () => {
+    setShowInstallModal(true);
+  };
+
+  const handleSelectModFiles = async () => {
+    try {
+      const selected = await open({
+        multiple: true,
+        filters: [{
+          name: 'Mod Files',
+          extensions: ['bnp', 'zip', '7z', 'rar']
+        }]
+      });
+      
+      if (selected && Array.isArray(selected)) {
+        setInstallFiles(selected);
+      } else if (selected) {
+        setInstallFiles([selected]);
+      }
+    } catch (error) {
+      console.error("Error selecting mod files:", error);
+    }
+  };
+
+  const handleInstallSelectedMods = async () => {
+    // For now, just show that installation was attempted
+    console.log("Installing mods:", installFiles);
+    setInstallFiles([]);
+    setShowInstallModal(false);
+    // TODO: Implement actual mod installation via Tauri command
+    alert(`Installation of ${installFiles.length} mod(s) would be processed here. This feature is not yet fully implemented.`);
   };
 
   const handleEnableMods = async () => {
@@ -184,6 +215,49 @@ function ModsTab() {
           )}
         </Card.Body>
       </Card>
+
+      {/* Mod Installation Modal */}
+      <Modal show={showInstallModal} onHide={() => setShowInstallModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Install Mod</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form>
+            <Form.Group className="mb-3">
+              <Form.Label>Select Mod Files</Form.Label>
+              <div className="d-grid gap-2">
+                <Button variant="outline-primary" onClick={handleSelectModFiles}>
+                  Browse for Mod Files (.bnp, .zip, .7z, .rar)
+                </Button>
+              </div>
+              {installFiles.length > 0 && (
+                <div className="mt-2">
+                  <strong>Selected Files:</strong>
+                  <ul className="list-group mt-1">
+                    {installFiles.map((file, index) => (
+                      <li key={index} className="list-group-item">
+                        {file.split('/').pop() || file.split('\\').pop()}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowInstallModal(false)}>
+            Cancel
+          </Button>
+          <Button 
+            variant="primary" 
+            onClick={handleInstallSelectedMods}
+            disabled={installFiles.length === 0}
+          >
+            Install {installFiles.length > 0 ? `(${installFiles.length} files)` : ''}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 }

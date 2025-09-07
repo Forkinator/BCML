@@ -1,12 +1,27 @@
 import { useState } from "react";
 import { Button, Card, Form } from "react-bootstrap";
 import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 
 function DevToolsTab() {
   const [gameDir, setGameDir] = useState("");
   const [outputDir, setOutputDir] = useState("");
   const [processing, setProcessing] = useState(false);
   const [result, setResult] = useState<string | null>(null);
+
+  const handleSelectDirectory = async (setter: (dir: string) => void) => {
+    try {
+      const selected = await open({
+        directory: true,
+      });
+      
+      if (selected && typeof selected === 'string') {
+        setter(selected);
+      }
+    } catch (error) {
+      console.error("Error selecting directory:", error);
+    }
+  };
 
   const handleFindModifiedFiles = async () => {
     if (!gameDir) {
@@ -28,13 +43,48 @@ function DevToolsTab() {
   };
 
   const handleCreateBackup = async () => {
-    // TODO: Implement backup creation
-    setResult("Backup creation not yet implemented");
+    if (!gameDir) {
+      setResult("Please select a game directory first");
+      return;
+    }
+
+    setProcessing(true);
+    setResult(null);
+    
+    try {
+      // For now, provide a placeholder implementation
+      // This would normally create a backup of the game files
+      setResult(`Backup functionality not yet implemented.\nWould backup: ${gameDir}\nTo: ${outputDir || 'Default backup location'}`);
+    } catch (error) {
+      setResult(`Error: ${error}`);
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const handleValidateFiles = async () => {
-    // TODO: Implement file validation
-    setResult("File validation not yet implemented");
+    if (!gameDir) {
+      setResult("Please select a game directory first");
+      return;
+    }
+
+    setProcessing(true);
+    setResult(null);
+    
+    try {
+      // Use the find_modified_files command to validate/scan files
+      const files = await invoke("find_modified_files", { mod_dir: gameDir }) as string[];
+      
+      if (files.length === 0) {
+        setResult("No modified files found. All files appear to be valid stock game files.");
+      } else {
+        setResult(`Validation complete. Found ${files.length} potentially modified files:\n${files.slice(0, 10).join('\n')}${files.length > 10 ? '\n... and more' : ''}`);
+      }
+    } catch (error) {
+      setResult(`Validation error: ${error}`);
+    } finally {
+      setProcessing(false);
+    }
   };
 
   return (
@@ -54,7 +104,10 @@ function DevToolsTab() {
                   onChange={(e) => setGameDir(e.target.value)}
                   placeholder="Select game directory..."
                 />
-                <Button variant="outline-secondary">
+                <Button 
+                  variant="outline-secondary"
+                  onClick={() => handleSelectDirectory(setGameDir)}
+                >
                   Browse
                 </Button>
               </div>
@@ -69,7 +122,10 @@ function DevToolsTab() {
                   onChange={(e) => setOutputDir(e.target.value)}
                   placeholder="Select output directory..."
                 />
-                <Button variant="outline-secondary">
+                <Button 
+                  variant="outline-secondary"
+                  onClick={() => handleSelectDirectory(setOutputDir)}
+                >
                   Browse
                 </Button>
               </div>
