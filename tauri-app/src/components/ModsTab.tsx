@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Button, ButtonGroup, Card, Col, Row, Table, Modal, Form, Dropdown } from "react-bootstrap";
+import { Button, ButtonGroup, Modal, Form, Dropdown } from "react-bootstrap";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
@@ -111,8 +111,36 @@ function ModsTab({
   const loadMods = async () => {
     setLoading(true);
     try {
-      const modList = await invoke("get_mods") as Mod[];
-      setMods(modList);
+      // Check if we're running in Tauri context
+      if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+        const modList = await invoke("get_mods") as Mod[];
+        setMods(modList);
+      } else {
+        // Mock data for browser development
+        setMods([
+          {
+            name: "Example Mod 1",
+            path: "/path/to/mod1",
+            enabled: true,
+            priority: 100,
+            description: "An example mod for testing"
+          },
+          {
+            name: "Example Mod 2",
+            path: "/path/to/mod2",
+            enabled: false,
+            priority: 200,
+            description: "Another example mod"
+          },
+          {
+            name: "Really Long Mod Name That Should Be Truncated",
+            path: "/path/to/mod3",
+            enabled: true,
+            priority: 300,
+            description: "A mod with a very long name to test text truncation in the UI"
+          }
+        ]);
+      }
     } catch (error) {
       console.error("Failed to load mods:", error);
       // Fallback to placeholder data
@@ -307,164 +335,268 @@ function ModsTab({
   };
 
   return (
-    <div>
-      <Row className="mb-3">
-        <Col>
-          <ButtonGroup>
-            <Button variant="primary" onClick={handleInstallMod} title="Install Mod (Ctrl+I)">
-              Install Mod
-            </Button>
-            <Button 
-              variant="success" 
-              onClick={handleEnableMods}
-              disabled={selectedMods.length === 0}
-              title="Enable Selected (Ctrl+E)"
-            >
-              Enable
-            </Button>
-            <Button 
-              variant="warning" 
-              onClick={handleDisableMods}
-              disabled={selectedMods.length === 0}
-              title="Disable Selected (Ctrl+D)"
-            >
-              Disable
-            </Button>
-            <Button 
-              variant="danger" 
-              onClick={handleUninstallMods}
-              disabled={selectedMods.length === 0}
-              title="Uninstall Selected (Ctrl+U)"
-            >
-              Uninstall
-            </Button>
-          </ButtonGroup>
-          
-          <ButtonGroup className="ms-2">
-            <Button 
-              variant="info" 
-              onClick={exploreModFolders}
-              disabled={selectedMods.length === 0}
-              title="Explore Folders (Ctrl+X)"
-            >
-              Explore
-            </Button>
-            <Button 
-              variant="secondary" 
-              onClick={reprocessMods}
-              disabled={selectedMods.length === 0}
-              title="Reprocess (Ctrl+P)"
-            >
-              Reprocess
-            </Button>
-            <Button 
-              variant="secondary" 
-              onClick={remergeAll}
-              title="Remerge All (Ctrl+M)"
-            >
-              Remerge
-            </Button>
-          </ButtonGroup>
-
-          <Dropdown as={ButtonGroup} className="ms-2">
-            <Button variant="outline-secondary" onClick={onLaunch} title="Launch Game (Ctrl+L)">
-              Launch Game
-            </Button>
-            <Dropdown.Toggle split variant="outline-secondary" />
-            <Dropdown.Menu>
-              <Dropdown.Item onClick={onBackup} title="Backup (Ctrl+B)">
-                🗂️ Backup & Restore
-              </Dropdown.Item>
-              <Dropdown.Item onClick={onProfile} title="Profiles (Ctrl+F)">
-                📁 Profiles
-              </Dropdown.Item>
-              <Dropdown.Item onClick={exportMods}>
-                📤 Export Mods
-              </Dropdown.Item>
-              <Dropdown.Divider />
-              <Dropdown.Item onClick={() => setShowDisabled(!showDisabled)} title="Toggle Show Disabled (Ctrl+H)">
-                {showDisabled ? "🙈 Hide" : "👁️ Show"} Disabled Mods
-              </Dropdown.Item>
-              <Dropdown.Item onClick={() => setSortReverse(!sortReverse)} title="Toggle Sort Order (Ctrl+O)">
-                🔄 Sort {sortReverse ? "Ascending" : "Descending"}
-              </Dropdown.Item>
-              <Dropdown.Divider />
-              <Dropdown.Item onClick={uninstallAllMods} className="text-danger" title="Uninstall All (Ctrl+Shift+U)">
-                ⚠️ Uninstall All Mods
-              </Dropdown.Item>
-            </Dropdown.Menu>
-          </Dropdown>
-        </Col>
-      </Row>
-
-      <Card>
-        <Card.Header className="d-flex justify-content-between align-items-center">
-          <h5>Installed Mods ({filteredMods.length}{mods.length !== filteredMods.length ? ` of ${mods.length}` : ''})</h5>
-          <div>
-            <Button 
-              variant="outline-secondary" 
-              size="sm"
-              onClick={handleSelectAll}
-              title="Select All/None"
-            >
-              {selectedMods.length === filteredMods.length ? "Deselect All" : "Select All"}
-            </Button>
+    <div className="mods-layout">
+      {/* Left Panel - Mod List */}
+      <div className="mods-panel">
+        {loading ? (
+          <div className="text-center mt-3">
+            <div className="spinner-border spinner-border-sm text-light" role="status">
+              <span className="visually-hidden">Loading...</span>
+            </div>
           </div>
-        </Card.Header>
-        <Card.Body>
-          {loading ? (
-            <div className="text-center">Loading mods...</div>
-          ) : filteredMods.length === 0 ? (
-            <div className="text-center text-muted">
-              {mods.length === 0 
-                ? "No mods installed. Click \"Install Mod\" to get started."
-                : "No mods match the current filter. Toggle \"Show Disabled\" to see all mods."
-              }
+        ) : (
+          <>
+            <div className="mod-list">
+              {filteredMods.length === 0 ? (
+                <div className="text-secondary m-2 text-center">
+                  {mods.length === 0 
+                    ? "No mods installed"
+                    : "No mods match current filter"
+                  }
+                </div>
+              ) : (
+                <div className="list-group">
+                  {filteredMods.map((mod, index) => (
+                    <div
+                      key={index}
+                      className={`list-group-item ${
+                        selectedMods.includes(mod.path) ? 'active' : ''
+                      } ${
+                        !mod.enabled ? 'mod-disabled' : ''
+                      }`}
+                      onClick={() => handleModSelect(mod.path, !selectedMods.includes(mod.path))}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div className="d-flex align-items-center">
+                        <div className="mod-handle me-2">
+                          <i className="material-icons">drag_indicator</i>
+                        </div>
+                        <div className="flex-grow-1 text-truncate">
+                          <div className="fw-bold text-truncate">{mod.name}</div>
+                          <small className="text-muted">{mod.version || "Unknown"}</small>
+                        </div>
+                        <div className="ms-2">
+                          <span className={`badge ${mod.enabled ? 'bg-success' : 'bg-secondary'} badge-sm`}>
+                            {mod.enabled ? 'ON' : 'OFF'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            {/* List Actions */}
+            <div className="list-actions d-flex pt-1">
+              <div className="btn-group btn-group-xs">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  title={`Current sort priority: ${sortReverse ? 'highest to lowest' : 'lowest to highest'}\nClick to change (Ctrl+O)`}
+                  onClick={() => setSortReverse(!sortReverse)}
+                >
+                  <i className={`material-icons ${!sortReverse ? 'reversed' : ''}`}>sort</i>
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  title="Show sort handles"
+                >
+                  <i className="material-icons">reorder</i>
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  title={`${showDisabled ? 'Hide' : 'Show'} disabled mods (Ctrl+H)`}
+                  onClick={() => setShowDisabled(!showDisabled)}
+                >
+                  <i className="material-icons">{showDisabled ? 'visibility_off' : 'visibility'}</i>
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  title="Backup & Restore (Ctrl+B)"
+                  onClick={onBackup}
+                >
+                  <i className="material-icons">backup</i>
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  title="Profiles (Ctrl+F)"
+                  onClick={onProfile}
+                >
+                  <i className="material-icons">dynamic_feed</i>
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  title="Export"
+                  onClick={exportMods}
+                >
+                  <i className="material-icons">open_in_browser</i>
+                </Button>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  title="Uninstall all mods (Ctrl+Shift+U)"
+                  onClick={uninstallAllMods}
+                >
+                  <i className="material-icons">delete_sweep</i>
+                </Button>
+              </div>
+              <div className="flex-grow-1"></div>
+              <Dropdown as={ButtonGroup} size="sm">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={onLaunch}
+                  title="Launch Breath of the Wild (Ctrl+L)"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 171 171"
+                    style={{ fill: "#ffb300" }}
+                  >
+                    <g fill="#ffb300">
+                      <path d="M85.5,19.14844l-35.625,61.67578h71.25zM121.125,80.82422l-35.625,61.67578h71.25zM85.5,142.5l-35.625,-61.67578l-35.625,61.67578z"></path>
+                    </g>
+                  </svg>
+                </Button>
+                <Dropdown.Toggle split variant="primary" />
+                <Dropdown.Menu>
+                  <Dropdown.Item>Launch without mods</Dropdown.Item>
+                  <Dropdown.Item>Launch Cemu without starting game</Dropdown.Item>
+                </Dropdown.Menu>
+              </Dropdown>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Right Panel - Mod Info */}
+      <div className="mod-info-panel">
+        <div className="mod-content">
+          {selectedMods.length === 0 ? (
+            <div className="text-center mt-5">
+              <h4>No Mod Selected</h4>
+              <p className="text-muted">Select a mod from the list to view details</p>
+            </div>
+          ) : selectedMods.length === 1 ? (
+            <div className="p-3">
+              <div className="mod-header">
+                <div className="mod-title">
+                  <h1>{filteredMods.find(m => m.path === selectedMods[0])?.name || 'Unknown Mod'}</h1>
+                  <span className={`badge ${filteredMods.find(m => m.path === selectedMods[0])?.enabled ? 'bg-success' : 'bg-secondary'}`}>
+                    {filteredMods.find(m => m.path === selectedMods[0])?.enabled ? 'Enabled' : 'Disabled'}
+                  </span>
+                </div>
+              </div>
+              <div className="mod-descrip">
+                <p>{filteredMods.find(m => m.path === selectedMods[0])?.description || 'No description available.'}</p>
+              </div>
+              <div className="mod-actions">
+                <Button
+                  variant={filteredMods.find(m => m.path === selectedMods[0])?.enabled ? 'warning' : 'success'}
+                  onClick={filteredMods.find(m => m.path === selectedMods[0])?.enabled ? handleDisableMods : handleEnableMods}
+                  title={`${filteredMods.find(m => m.path === selectedMods[0])?.enabled ? 'Disable' : 'Enable'} mod`}
+                >
+                  <i className="material-icons">{filteredMods.find(m => m.path === selectedMods[0])?.enabled ? 'visibility_off' : 'visibility'}</i>
+                  <span>{filteredMods.find(m => m.path === selectedMods[0])?.enabled ? 'Disable' : 'Enable'}</span>
+                </Button>
+                <Button
+                  variant="info"
+                  onClick={exploreModFolders}
+                  title="Open mod folder"
+                >
+                  <i className="material-icons">folder_open</i>
+                  <span>Explore</span>
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={reprocessMods}
+                  title="Reprocess mod"
+                >
+                  <i className="material-icons">refresh</i>
+                  <span>Reprocess</span>
+                </Button>
+                <Button
+                  variant="danger"
+                  onClick={handleUninstallMods}
+                  title="Uninstall mod"
+                >
+                  <i className="material-icons">delete</i>
+                  <span>Uninstall</span>
+                </Button>
+              </div>
+              <div className="mod-details">
+                <span>Version: {filteredMods.find(m => m.path === selectedMods[0])?.version || 'Unknown'}</span>
+                <span>Priority: {filteredMods.find(m => m.path === selectedMods[0])?.priority}</span>
+                <span>Path: {selectedMods[0]}</span>
+              </div>
             </div>
           ) : (
-            <Table striped hover>
-              <thead>
-                <tr>
-                  <th style={{ width: "40px" }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedMods.length === filteredMods.length && filteredMods.length > 0}
-                      onChange={handleSelectAll}
-                    />
-                  </th>
-                  <th>Name</th>
-                  <th>Version</th>
-                  <th>Status</th>
-                  <th>Priority</th>
-                  <th>Description</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredMods.map((mod, index) => (
-                  <tr key={index} className={!mod.enabled ? "text-muted" : ""}>
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={selectedMods.includes(mod.path)}
-                        onChange={(e) => handleModSelect(mod.path, e.target.checked)}
-                      />
-                    </td>
-                    <td className="fw-bold">{mod.name}</td>
-                    <td className="text-muted">{mod.version || "Unknown"}</td>
-                    <td>
-                      <span className={`badge ${mod.enabled ? 'bg-success' : 'bg-secondary'}`}>
-                        {mod.enabled ? 'Enabled' : 'Disabled'}
-                      </span>
-                    </td>
-                    <td>{mod.priority}</td>
-                    <td className="text-muted">{mod.description}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
+            <div className="p-3">
+              <h2>Multiple Mods Selected ({selectedMods.length})</h2>
+              <p>Bulk operations available:</p>
+              <div className="mod-actions">
+                <Button
+                  variant="success"
+                  onClick={handleEnableMods}
+                  title="Enable selected mods"
+                >
+                  <i className="material-icons">visibility</i>
+                  <span>Enable All</span>
+                </Button>
+                <Button
+                  variant="warning"
+                  onClick={handleDisableMods}
+                  title="Disable selected mods"
+                >
+                  <i className="material-icons">visibility_off</i>
+                  <span>Disable All</span>
+                </Button>
+                <Button
+                  variant="info"
+                  onClick={exploreModFolders}
+                  title="Open mod folders"
+                >
+                  <i className="material-icons">folder_open</i>
+                  <span>Explore</span>
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={reprocessMods}
+                  title="Reprocess mods"
+                >
+                  <i className="material-icons">refresh</i>
+                  <span>Reprocess</span>
+                </Button>
+                <Button
+                  variant="danger"
+                  onClick={handleUninstallMods}
+                  title="Uninstall selected mods"
+                >
+                  <i className="material-icons">delete</i>
+                  <span>Uninstall</span>
+                </Button>
+              </div>
+            </div>
           )}
-        </Card.Body>
-      </Card>
+        </div>
+      </div>
+
+      {/* Floating Action Button */}
+      <button
+        className="fab"
+        title="Install (Ctrl+I)"
+        onClick={() => setShowInstallModal(true)}
+      >
+        <i className="material-icons">add</i>
+      </button>
 
       {/* Mod Installation Modal */}
       <Modal show={showInstallModal} onHide={() => setShowInstallModal(false)} size="lg">

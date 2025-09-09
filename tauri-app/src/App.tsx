@@ -36,26 +36,33 @@ function App() {
   const [showAbout, setShowAbout] = useState(false);
 
   useEffect(() => {
-    // Get version from Rust backend
-    invoke("get_version")
-      .then((ver) => setVersion(ver as string))
-      .catch((err) => setError(`Failed to get version: ${err}`));
+    // Check if we're running in Tauri context
+    if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+      // Get version from Rust backend
+      invoke("get_version")
+        .then((ver) => setVersion(ver as string))
+        .catch((err) => setError(`Failed to get version: ${err}`));
 
-    // Perform sanity check
-    invoke("sanity_check")
-      .then((result) => {
-        if (!(result as boolean)) {
-          setError("Sanity check failed");
-        }
-      })
-      .catch((err) => setError(`Sanity check failed: ${err}`));
+      // Perform sanity check
+      invoke("sanity_check")
+        .then((result) => {
+          if (!(result as boolean)) {
+            setError("Sanity check failed");
+          }
+        })
+        .catch((err) => setError(`Sanity check failed: ${err}`));
 
-    // Check if Cemu is available
-    invoke("get_settings")
-      .then((settings: any) => {
-        setHasCemu(!!settings.cemu_dir);
-      })
-      .catch(() => setHasCemu(false));
+      // Check if Cemu is available
+      invoke("get_settings")
+        .then((settings: any) => {
+          setHasCemu(!!settings.cemu_dir);
+        })
+        .catch(() => setHasCemu(false));
+    } else {
+      // Running in browser for development
+      setVersion("3.10.8 (dev)");
+      setHasCemu(true);
+    }
   }, []);
 
   const handleKeyDown = (e: KeyboardEvent) => {
@@ -263,7 +270,7 @@ function App() {
   return (
     <div className="app">
       <Navbar bg="dark" variant="dark" expand="lg">
-        <Container>
+        <Container fluid className="position-relative">
           <Navbar.Brand>
             BCML {version && `v${version}`}
           </Navbar.Brand>
@@ -272,15 +279,16 @@ function App() {
           </Navbar.Text>
           
           {/* Overflow Menu */}
-          <div className="ms-auto d-flex">
+          <div className="overflow-menu d-flex">
             <Dropdown align="end">
               <Dropdown.Toggle
                 id="dropdown-basic"
                 variant="outline-light"
                 size="sm"
                 title="Overflow Menu (Alt+M)"
+                className="dropdown-toggle"
               >
-                ☰
+                <i className="material-icons">menu</i>
               </Dropdown.Toggle>
               <Dropdown.Menu>
                 <Dropdown.Item onClick={saveModList}>
@@ -308,20 +316,20 @@ function App() {
                 className="ms-2"
                 onClick={openHelp}
               >
-                ?
+                <i className="material-icons">help</i>
               </Button>
             </OverlayTrigger>
           </div>
         </Container>
       </Navbar>
 
-      <Container fluid className="mt-3">
-        <Tabs
-          activeKey={activeTab}
-          onSelect={(tab) => setActiveTab(tab || "mods")}
-          className="mb-3"
-        >
-          <Tab eventKey="mods" title="Mods">
+      <Tabs
+        activeKey={activeTab}
+        onSelect={(tab) => setActiveTab(tab || "mods")}
+        className="nav-tabs"
+      >
+        <Tab eventKey="mods" title="Mods">
+          <div className="tab-pane active">
             <ModsTab 
               onError={showErrorDialog}
               onProgress={showProgressDialog}
@@ -331,23 +339,29 @@ function App() {
               onLaunch={launchGame}
               onConfirm={confirm}
             />
-          </Tab>
-          <Tab eventKey="dev-tools" title="Dev Tools">
+          </div>
+        </Tab>
+        <Tab eventKey="dev-tools" title="Dev Tools">
+          <div className="tab-pane active">
             <DevToolsTab
               onError={showErrorDialog}
               onProgress={showProgressDialog}
               onDone={showDoneDialog}
             />
-          </Tab>
-          <Tab eventKey="settings" title="Settings">
-            <SettingsTab
-              onError={showErrorDialog}
-              onProgress={showProgressDialog}
-              onDone={showDoneDialog}
-            />
-          </Tab>
-        </Tabs>
-      </Container>
+          </div>
+        </Tab>
+        <Tab eventKey="settings" title="Settings">
+          <div className="tab-pane active">
+            <Container fluid className="p-3">
+              <SettingsTab
+                onError={showErrorDialog}
+                onProgress={showProgressDialog}
+                onDone={showDoneDialog}
+              />
+            </Container>
+          </div>
+        </Tab>
+      </Tabs>
 
       {/* Modals */}
       <ProgressModal

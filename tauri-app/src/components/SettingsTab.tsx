@@ -80,8 +80,38 @@ function SettingsTab({ onError, onProgress, onDone }: SettingsTabProps) {
 
   const loadSettings = async () => {
     try {
-      const loadedSettings = await invoke("get_settings") as Settings;
-      setSettings(loadedSettings);
+      // Check if we're running in Tauri context
+      if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+        const loadedSettings = await invoke("get_settings") as Settings;
+        setSettings(loadedSettings);
+      } else {
+        // Mock settings for browser development
+        setSettings({
+          game_dir: "/path/to/game",
+          game_dir_nx: "/path/to/game_nx",
+          update_dir: "/path/to/update",
+          dlc_dir: "/path/to/dlc",
+          dlc_dir_nx: "/path/to/dlc_nx",
+          cemu_dir: "/path/to/cemu",
+          store_dir: "/path/to/store",
+          export_dir: "/path/to/export",
+          export_dir_nx: "/path/to/export_nx",
+          wiiu: true,
+          lang: "USen",
+          no_cemu: false,
+          no_hardlinks: false,
+          force_7z: false,
+          suppress_update: false,
+          load_reverse: false,
+          nsfw: false,
+          changelog: true,
+          strip_gfx: false,
+          auto_gb: false,
+          show_gb: true,
+          site_meta: "",
+          no_guess: false,
+        });
+      }
     } catch (error) {
       console.error("Failed to load settings:", error);
       onError(`Failed to load settings: ${error}`);
