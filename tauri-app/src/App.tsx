@@ -11,6 +11,7 @@ import ErrorModal from "./components/ErrorModal";
 import BackupModal from "./components/BackupModal";
 import ProfileModal from "./components/ProfileModal";
 import AboutModal from "./components/AboutModal";
+import FirstRunWizard from "./components/FirstRunWizard";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./App.css";
 
@@ -21,6 +22,7 @@ function App() {
   const [version, setVersion] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [hasCemu, setHasCemu] = useState(false);
+  const [showFirstRun, setShowFirstRun] = useState(false);
   
   // Modal states
   const [showProgress, setShowProgress] = useState(false);
@@ -38,30 +40,50 @@ function App() {
   useEffect(() => {
     // Check if we're running in Tauri context
     if (typeof window !== 'undefined' && (window as any).__TAURI__) {
-      // Get version from Rust backend
-      invoke("get_version")
-        .then((ver) => setVersion(ver as string))
-        .catch((err) => setError(`Failed to get version: ${err}`));
+      // Check for first run before doing anything else
+      invoke("check_settings_exist")
+        .then((exists: any) => {
+          const isFirstRun = !exists;
+          setShowFirstRun(isFirstRun);
+          if (exists) {
+            // Only do these checks if not first run
+            // Get version from Rust backend
+            invoke("get_version")
+              .then((ver) => setVersion(ver as string))
+              .catch((err) => setError(`Failed to get version: ${err}`));
 
-      // Perform sanity check
-      invoke("sanity_check")
-        .then((result) => {
-          if (!(result as boolean)) {
-            setError("Sanity check failed");
+            // Perform sanity check
+            invoke("sanity_check")
+              .then((result) => {
+                if (!(result as boolean)) {
+                  setError("Sanity check failed");
+                }
+              })
+              .catch((err) => setError(`Sanity check failed: ${err}`));
+
+            // Check if Cemu is available
+            invoke("get_settings")
+              .then((settings: any) => {
+                setHasCemu(!!settings.cemu_dir);
+              })
+              .catch(() => setHasCemu(false));
+          } else {
+            // First run - just get version
+            invoke("get_version")
+              .then((ver) => setVersion(ver as string))
+              .catch((err) => setError(`Failed to get version: ${err}`));
           }
         })
-        .catch((err) => setError(`Sanity check failed: ${err}`));
-
-      // Check if Cemu is available
-      invoke("get_settings")
-        .then((settings: any) => {
-          setHasCemu(!!settings.cemu_dir);
-        })
-        .catch(() => setHasCemu(false));
+        .catch((err) => {
+          console.error("Failed to check settings:", err);
+          setError(`Failed to check settings: ${err}`);
+        });
     } else {
-      // Running in browser for development
+      // Running in browser for development - simulate first run
       setVersion("3.10.8 (dev)");
       setHasCemu(true);
+      // Show first-run wizard in development
+      setShowFirstRun(true);
     }
   }, []);
 
@@ -145,8 +167,31 @@ function App() {
   };
 
   const runSetupWizard = () => {
-    // TODO: Implement setup wizard
-    console.log("Setup wizard not yet implemented");
+    // Show the setup wizard again
+    setShowFirstRun(true);
+  };
+
+  const onFirstRunComplete = async () => {
+    setShowFirstRun(false);
+    
+    // Now perform the initial setup that was skipped
+    try {
+      // Get version from Rust backend
+      const ver = await invoke("get_version");
+      setVersion(ver as string);
+
+      // Perform sanity check
+      const result = await invoke("sanity_check");
+      if (!(result as boolean)) {
+        setError("Sanity check failed");
+      }
+
+      // Check if Cemu is available
+      const settings = await invoke("get_settings");
+      setHasCemu(!!(settings as any).cemu_dir);
+    } catch (err) {
+      setError(`Failed to complete setup: ${err}`);
+    }
   };
 
   const launchGame = async () => {
@@ -426,6 +471,11 @@ function App() {
         show={showAbout}
         onClose={() => setShowAbout(false)}
         version={version}
+      />
+      
+      <FirstRunWizard
+        show={showFirstRun}
+        onComplete={onFirstRunComplete}
       />
     </div>
   );

@@ -173,10 +173,6 @@ function ModsTab({
     }
   };
 
-  const handleInstallMod = async () => {
-    setShowInstallModal(true);
-  };
-
   const handleSelectModFiles = async () => {
     try {
       const selected = await open({
@@ -275,14 +271,6 @@ function ModsTab({
       onDone();
     } catch (error) {
       onError(`Failed to export mods: ${error}`);
-    }
-  };
-
-  const handleSelectAll = () => {
-    if (selectedMods.length === filteredMods.length) {
-      setSelectedMods([]);
-    } else {
-      setSelectedMods(filteredMods.map(mod => mod.path));
     }
   };
 

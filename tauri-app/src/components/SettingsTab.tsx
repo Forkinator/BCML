@@ -31,15 +31,27 @@ interface Settings {
 
 interface SettingsTabProps {
   onError: (error: string) => void;
-  onProgress: (title: string, status?: string) => void;
-  onDone: () => void;
+  onProgress?: (title: string, status?: string) => void;
+  onDone?: () => void;
+  onSettingsValid?: (valid: boolean) => void;
+  onSaveSettings?: (settings: Settings) => void;
+  isFirstRun?: boolean;
+  saving?: boolean;
 }
 
 const LANGUAGES = [
   "USen", "EUen", "USfr", "USes", "EUde", "EUes", "EUfr", "EUit", "EUnl", "EUru", "CNzh", "JPja", "KRko", "TWzh"
 ];
 
-function SettingsTab({ onError, onProgress, onDone }: SettingsTabProps) {
+function SettingsTab({ 
+  onError, 
+  onProgress, 
+  onDone, 
+  onSettingsValid, 
+  onSaveSettings, 
+  isFirstRun = false, 
+  saving: externalSaving = false 
+}: SettingsTabProps) {
   const [settings, setSettings] = useState<Settings>({
     game_dir: "",
     game_dir_nx: "",
@@ -76,7 +88,11 @@ function SettingsTab({ onError, onProgress, onDone }: SettingsTabProps) {
 
   useEffect(() => {
     validateSettings();
-  }, [settings]);
+    // Notify parent component about validation status for first-run wizard
+    if (onSettingsValid) {
+      onSettingsValid(isValid);
+    }
+  }, [settings, isValid, onSettingsValid]);
 
   const loadSettings = async () => {
     try {
@@ -167,17 +183,23 @@ function SettingsTab({ onError, onProgress, onDone }: SettingsTabProps) {
       return;
     }
 
-    setSaving(true);
-    try {
-      onProgress("Saving Settings");
-      await invoke("save_settings", { settings });
-      setIsDirty(false);
-      setMessage({ type: 'success', text: 'Settings saved successfully!' });
-      onDone();
-    } catch (error) {
-      onError(`Failed to save settings: ${error}`);
-    } finally {
-      setSaving(false);
+    if (isFirstRun && onSaveSettings) {
+      // In first-run mode, let the wizard handle saving
+      onSaveSettings(settings);
+    } else {
+      // Normal save mode
+      setSaving(true);
+      try {
+        if (onProgress) onProgress("Saving Settings");
+        await invoke("save_settings", { settings });
+        setIsDirty(false);
+        setMessage({ type: 'success', text: 'Settings saved successfully!' });
+        if (onDone) onDone();
+      } catch (error) {
+        onError(`Failed to save settings: ${error}`);
+      } finally {
+        setSaving(false);
+      }
     }
   };
 
@@ -228,9 +250,9 @@ function SettingsTab({ onError, onProgress, onDone }: SettingsTabProps) {
             <Button 
               variant="primary" 
               onClick={handleSave}
-              disabled={!isDirty || saving || !isValid}
+              disabled={!isDirty || (saving || externalSaving) || !isValid}
             >
-              {saving ? "Saving..." : "Save Settings"}
+              {(saving || externalSaving) ? "Saving..." : "Save Settings"}
             </Button>
           </div>
         </Card.Header>

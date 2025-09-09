@@ -691,8 +691,54 @@ blockquote {
   overflow-x: auto;
 }
 
-/* Import Material Design Icons */
-@import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+/* Material Icons fallback to Unicode */
+.material-icons {
+  font-family: 'Material Icons', 'Material Icons Outlined', 'Material Symbols Outlined', sans-serif;
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  display: inline-block;
+  line-height: 1;
+  text-transform: none;
+  letter-spacing: normal;
+  word-wrap: normal;
+  white-space: nowrap;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'liga';
+}
+
+/* Fallback Unicode symbols for common icons */
+.material-icons {
+  position: relative;
+}
+
+.material-icons:before {
+  content: attr(data-icon);
+}
+
+/* Map icon names to Unicode symbols */
+.material-icons:after {
+  content: '';
+  position: absolute;
+  left: 0;
+  font-family: 'Arial Unicode MS', sans-serif;
+}
+
+/* Common icon mappings */
+.material-icons:contains('menu'):after { content: '≡'; }
+.material-icons:contains('help'):after { content: '?'; }
+.material-icons:contains('arrow_forward'):after { content: '→'; }
+.material-icons:contains('arrow_back'):after { content: '←'; }
+.material-icons:contains('settings'):after { content: '⚙'; }
+.material-icons:contains('add'):after { content: '+'; }
+.material-icons:contains('delete'):after { content: '×'; }
+.material-icons:contains('edit'):after { content: '✎'; }
+.material-icons:contains('save'):after { content: '💾'; }
+.material-icons:contains('check'):after { content: '✓'; }
+.material-icons:contains('close'):after { content: '×'; }
 
 /* Color Variables */
 :root {

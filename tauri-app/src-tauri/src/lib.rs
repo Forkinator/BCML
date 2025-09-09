@@ -713,6 +713,60 @@ async fn compare_files(dir1: String, dir2: String) -> Result<serde_json::Value, 
     }))
 }
 
+// First-run wizard commands
+#[derive(Serialize)]
+struct OldSettingsResult {
+    exists: bool,
+    message: String,
+}
+
+#[tauri::command]
+async fn check_old_settings() -> Result<OldSettingsResult, String> {
+    // Check if settings.json exists
+    let settings_file = get_settings_file();
+    let exists = settings_file.exists();
+    
+    let message = if exists {
+        "Settings file found and loaded successfully."
+    } else {
+        "No existing settings found. Starting fresh setup."
+    };
+    
+    Ok(OldSettingsResult {
+        exists,
+        message: message.to_string(),
+    })
+}
+
+#[tauri::command]
+async fn get_old_mods_count() -> Result<u32, String> {
+    // TODO: Check for old BCML mods directory and count mods
+    // For now, return 0 as placeholder
+    Ok(0)
+}
+
+#[tauri::command]
+async fn convert_old_mods() -> Result<(), String> {
+    // TODO: Implement old mod conversion
+    // This would convert mods from an older BCML version
+    println!("Converting old mods...");
+    Ok(())
+}
+
+#[tauri::command]
+async fn delete_old_mods() -> Result<(), String> {
+    // TODO: Implement old mod deletion
+    // This would delete mods from an older BCML version
+    println!("Deleting old mods...");
+    Ok(())
+}
+
+#[tauri::command]
+async fn check_settings_exist() -> Result<bool, String> {
+    let settings_file = get_settings_file();
+    Ok(settings_file.exists())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -751,7 +805,12 @@ pub fn run() {
             create_bnp,
             get_existing_meta,
             convert_mod,
-            compare_files
+            compare_files,
+            check_old_settings,
+            get_old_mods_count,
+            convert_old_mods,
+            delete_old_mods,
+            check_settings_exist
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
