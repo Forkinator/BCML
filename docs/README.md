@@ -148,6 +148,17 @@ troubleshooting, please check the official
 
 ## Contributing
 
+## Fork origin
+
+This repository is maintained as a fork with upstream source at:
+
+- https://github.com/NiceneNerd/BCML
+
+Local git remote setup:
+
+- `origin`: your fork (`Forkinator/BCML-LonLonInstaller`)
+- `upstream`: upstream project (`NiceneNerd/BCML`)
+
 -   Issues: <https://github.com/NiceneNerd/BCML/issues>
 -   Source: <https://github.com/NiceneNerd/BCML>
 
