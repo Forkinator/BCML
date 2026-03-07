@@ -18,7 +18,8 @@ def listen():
         try:
             sock.bind(("127.0.0.1", 6666))
         except socket.error:
-            send_arg(sock)
+            if len(sys.argv) > 1:
+                send_arg(sock)
             os._exit(0)  # pylint: disable=protected-access
         sock.listen()
         while True:
@@ -35,8 +36,13 @@ def listen():
 
 
 def send_arg(sock):
-    sock.connect(("127.0.0.1", 6666))
-    sock.sendall(sys.argv[1].encode("utf8"))
+    if len(sys.argv) < 2:
+        return
+    try:
+        sock.connect(("127.0.0.1", 6666))
+        sock.sendall(sys.argv[1].encode("utf8"))
+    except OSError:
+        return
 
 
 def process_arg(arg: str = None):

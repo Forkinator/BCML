@@ -31,7 +31,7 @@ setup(
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3 :: Only",
     ],
-    python_requires=">=3.7",
+    python_requires=">=3.7,<3.14",
     install_requires=Path("requirements.txt").read_text().splitlines(),
     zip_safe=False,
 )

@@ -18,7 +18,7 @@ import bcml
 from bcml.util import Messager, LOG, SYSTEM
 from bcml._api import Api
 from bcml._server import start_server
-import install
+from bcml import install
 
 logger = None  # pylint: disable=invalid-name
 
@@ -147,9 +147,11 @@ def main(debug: bool = False):
     # with redirect_stderr(sys.stdout):
     #     with redirect_stdout(messager):  # type: ignore
     sleep(0.25)
-    install.refresh_merges()
-    install.refresh_master_export()
-    return # nah we don't care about the gui
+    try:
+        install.refresh_merges()
+        install.refresh_master_export()
+    except Exception as err:  # pragma: no cover - safe startup path for first-run without dumps
+        print(f"Skipping startup merge refresh: {err}")
     webview.start(gui=gui, debug=debug, http_server=True, func=_oneclick.process_arg)
     api.cleanup()
     stop_it()  # messager=messager)
