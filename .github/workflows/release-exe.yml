@@ -42,7 +42,6 @@ jobs:
       - name: Install build dependencies
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force (Resolve-Path ".").FullName | Out-Null
           New-Item -ItemType Directory -Force $env:TEMP | Out-Null
           python -m pip install --upgrade pip
           python -m pip install mkdocs mkdocs-material maturin pyinstaller
@@ -84,14 +83,7 @@ jobs:
           '@
           $entryPath = Join-Path $env:TEMP "bcml_entry.py"
           Set-Content -Path $entryPath -Value $entry -NoNewline
-          pyinstaller --onefile --noconsole --noconfirm --clean --name bcml ^
-            --collect-all bcml ^
-            --collect-all cefpython3 ^
-            --collect-all pywebview ^
-            --collect-all pythonnet ^
-            --collect-all oead ^
-            --collect-all rstb ^
-            $entryPath
+          pyinstaller --onefile --noconsole --noconfirm --clean --name bcml --collect-all bcml --collect-all cefpython3 --collect-all pywebview --collect-all pythonnet --collect-all oead --collect-all rstb $entryPath
 
           $tag = "${{ github.ref_name }}"
           $output = "dist\bcml-$tag-windows-x64.exe"
