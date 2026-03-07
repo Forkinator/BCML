@@ -51,7 +51,7 @@ jobs:
         shell: pwsh
         run: |
           Push-Location bcml/assets
-          npm install
+          npm ci
           npm run build
           Pop-Location
           mkdocs build -d bcml/assets/help
@@ -87,7 +87,13 @@ jobs:
 
           $tag = "${{ github.ref_name }}"
           $output = "dist\bcml-$tag-windows-x64.exe"
+          if (-not (Test-Path "dist\bcml.exe")) {
+            throw "PyInstaller output dist\\bcml.exe was not found"
+          }
           Copy-Item "dist\bcml.exe" $output
+          if (-not (Test-Path $output)) {
+            throw "Expected release executable was not created at $output"
+          }
           $hash = Get-FileHash $output -Algorithm SHA256
           Set-Content "$output.sha256" ("$($hash.Hash.ToLower())  $([System.IO.Path]::GetFileName($output))")
 
