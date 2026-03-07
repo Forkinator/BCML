@@ -1,0 +1,107 @@
+name: Release Windows EXE
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-exe:
+    name: Build BCML Windows executable
+    runs-on: windows-latest
+    env:
+      CMAKE_POLICY_VERSION_MINIMUM: "3.5"
+      TEMP: C:\tmp\bcml-pip
+      TMP: C:\tmp\bcml-pip
+      PYTHONUTF8: 1
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly-2023-04-20
+          profile: minimal
+          override: true
+
+      - name: Install build dependencies
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force (Resolve-Path ".").FullName | Out-Null
+          New-Item -ItemType Directory -Force $env:TEMP | Out-Null
+          python -m pip install --upgrade pip
+          python -m pip install mkdocs mkdocs-material maturin pyinstaller
+          python -m pip install -r requirements.txt
+
+      - name: Build JS bundle and docs
+        shell: pwsh
+        run: |
+          Push-Location bcml/assets
+          npm install
+          npm run build
+          Pop-Location
+          mkdocs build -d bcml/assets/help
+
+      - name: Build BCML wheel
+        shell: pwsh
+        run: |
+          python -m maturin build --release
+
+      - name: Install BCML wheel
+        shell: pwsh
+        run: |
+          $wheel = Get-ChildItem target\wheels -Filter "bcml-*.whl" |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+          if (-not $wheel) {
+            throw "No BCML wheel found in target\\wheels"
+          }
+          python -m pip install --force-reinstall $wheel.FullName
+
+      - name: Build standalone executable
+        shell: pwsh
+        run: |
+          $entry = @'
+          from bcml.__main__ import main
+
+          if __name__ == "__main__":
+              main()
+          '@
+          $entryPath = Join-Path $env:TEMP "bcml_entry.py"
+          Set-Content -Path $entryPath -Value $entry -NoNewline
+          pyinstaller --onefile --noconsole --noconfirm --clean --name bcml ^
+            --collect-all bcml ^
+            --collect-all cefpython3 ^
+            --collect-all pywebview ^
+            --collect-all pythonnet ^
+            --collect-all oead ^
+            --collect-all rstb ^
+            $entryPath
+
+          $tag = "${{ github.ref_name }}"
+          $output = "dist\bcml-$tag-windows-x64.exe"
+          Copy-Item "dist\bcml.exe" $output
+          $hash = Get-FileHash $output -Algorithm SHA256
+          Set-Content "$output.sha256" ("$($hash.Hash.ToLower())  $([System.IO.Path]::GetFileName($output))")
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/bcml-${{ github.ref_name }}-windows-x64.exe
+            dist/bcml-${{ github.ref_name }}-windows-x64.exe.sha256

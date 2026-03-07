@@ -127,6 +127,18 @@ Steps to build from source:
 Note that on Linux, you can simply run `bootstrap.sh` to perform these steps
 automatically unless you would like more control.
 
+## Releasing a Windows EXE
+
+1. Create and push a version tag using the `v*` format (for example, `v1.2.3`):
+   ```sh
+   git tag v1.2.3
+   git push origin v1.2.3
+   ```
+2. GitHub Actions builds a Windows release executable for the tag and uploads:
+   - `bcml-<tag>-windows-x64.exe`
+   - `bcml-<tag>-windows-x64.exe.sha256`
+3. Download the assets from the generated release for that tag.
+
 ## Usage and Troubleshooting
 
 For information on how to use BCML, see the Help dialog in-app or read the documentation
