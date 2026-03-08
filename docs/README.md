@@ -1,3 +1,10 @@
+This fork is my attempt to get a exe release working and able to be used by anyone.
+
+
+
+
+
+
 ![BCML Logo](https://i.imgur.com/OiqKPx0.png)
 
 # BCML: BOTW Cross-Platform Mod Loader
