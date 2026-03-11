@@ -1,3 +1,5 @@
+version 3.10.8 of bcml does not work properly. also bcml is obsolete and been replaced by ukmm. if you really really want bcml you should have used bcml 3.10.4
+
 This fork is my attempt to get a exe release working and able to be used by anyone.
 
 
